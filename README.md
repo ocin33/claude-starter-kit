@@ -78,6 +78,20 @@ claude
 
 Type `/onboard` — Claude walks you through defining your profile, problems, goals, and tasks. Takes 20-30 minutes. Saves progress after every step, so you can disconnect and resume anytime.
 
+## Claude Code on the web / mobile
+
+Claude Code on the web (and the mobile app) run each session in a fresh, ephemeral container — `./setup.sh` won't survive between sessions there, and its prompts (name, bio, package installs) need a human at a terminal. `.claude/hooks/session-start.sh` handles this instead: it's wired up as a `SessionStart` hook in `.claude/settings.json` and runs `setup-noninteractive.sh` automatically whenever a new session starts in this repo's environment, with no prompts and no package-manager installs (it assumes git/python3/jq are already present in the container image, and just warns if not).
+
+By itself this reinstalls `~/.claude/` and generates an empty workspace on every container — same content, but no memory between sessions. To carry your actual knowledge, tasks, and skills across sessions and devices, point it at a persistent workspace repo:
+
+1. Create a private GitHub repo for your workspace (e.g. `claude-assistant`).
+2. In this environment's settings (Claude Code on the web → your environment → Environment Variables), set:
+   - `WORKSPACE_REPO_URL` — `https://github.com/<you>/claude-assistant`
+   - `WORKSPACE_REPO_TOKEN` — a token with contents read/write on that repo (needed since it's private)
+   - `CLAUDE_USER_NAME` / `CLAUDE_USER_BIO` — optional, shown in `~/.claude/CLAUDE.md`
+
+On every session start the hook clones that repo if the workspace isn't there yet, or `git pull --ff-only`s it if it is — so knowledge you write in `knowledge/`, tasks in `tasks.db`/`state/backlog.md`, and session notes in `state/sessions/` follow you to the next session, whichever device it's started from. Commit and push from inside the workspace as usual (per the Session End Protocol in `rules/sessions.md`) to save it back.
+
 ## Directory Structure
 
 ### Global Config (`~/.claude/`)
