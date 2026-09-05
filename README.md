@@ -80,17 +80,15 @@ Type `/onboard` — Claude walks you through defining your profile, problems, go
 
 ## Claude Code on the web / mobile
 
-Claude Code on the web (and the mobile app) run each session in a fresh, ephemeral container — `./setup.sh` won't survive between sessions there, and its prompts (name, bio, package installs) need a human at a terminal. `.claude/hooks/session-start.sh` handles this instead: it's wired up as a `SessionStart` hook in `.claude/settings.json` and runs `setup-noninteractive.sh` automatically whenever a new session starts in this repo's environment, with no prompts and no package-manager installs (it assumes git/python3/jq are already present in the container image, and just warns if not).
+Claude Code on the web (and the mobile app) run each session in a fresh, ephemeral container tied to a single GitHub repo — the repo you started the session against **is** the session's project directory. Claude Code loads `.claude/skills/`, `.claude/agents/`, etc. only from that repo, never from an arbitrary path under `$HOME`. That means `/onboard`, `/tasks`, and the other workspace skills only work in a session started directly against **your workspace repo** (a private repo with the Phase 2 layout — skills, agents, scripts, knowledge/ — same as `~/claude-assistant/` below), not against `claude-starter-kit` itself.
 
-By itself this reinstalls `~/.claude/` and generates an empty workspace on every container — same content, but no memory between sessions. To carry your actual knowledge, tasks, and skills across sessions and devices, point it at a persistent workspace repo:
+So the setup has two parts:
 
-1. Create a private GitHub repo for your workspace (e.g. `claude-assistant`).
-2. In this environment's settings (Claude Code on the web → your environment → Environment Variables), set:
-   - `WORKSPACE_REPO_URL` — `https://github.com/<you>/claude-assistant`
-   - `WORKSPACE_REPO_TOKEN` — a token with contents read/write on that repo (needed since it's private)
-   - `CLAUDE_USER_NAME` / `CLAUDE_USER_BIO` — optional, shown in `~/.claude/CLAUDE.md`
+1. **This repo** (`claude-starter-kit`) only needs `.claude/hooks/session-start.sh` for the case where you're doing dev work on the kit itself: it installs the global `~/.claude/` config (rules, security guard, session hooks) automatically via `setup-noninteractive.sh`, no prompts, no package-manager installs (assumes `git`/`python3`/`jq` are already present in the container).
+2. **Your workspace repo** (e.g. a private `claude-assistant` repo, seeded with the Phase 2 layout from `./setup.sh`) needs the *same kind* of hook committed to it, since it's already the workspace once a session runs there — no cloning required. Start your actual assistant sessions (`/onboard`, `/tasks`, ...) against that repo instead of this one.
 
-On every session start the hook clones that repo if the workspace isn't there yet, or `git pull --ff-only`s it if it is — so knowledge you write in `knowledge/`, tasks in `tasks.db`/`state/backlog.md`, and session notes in `state/sessions/` follow you to the next session, whichever device it's started from. Commit and push from inside the workspace as usual (per the Session End Protocol in `rules/sessions.md`) to save it back.
+Optional environment variables (set once in your Claude Code on the web Environment → Environment Variables) apply to both:
+- `CLAUDE_USER_NAME` / `CLAUDE_USER_BIO` — shown in `~/.claude/CLAUDE.md`
 
 ## Directory Structure
 
